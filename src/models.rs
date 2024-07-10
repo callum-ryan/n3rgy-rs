@@ -167,7 +167,7 @@ pub struct ErrorResponse {
 #[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Error {
-    code: i64,
+    code: u16,
     message: String,
 }
 

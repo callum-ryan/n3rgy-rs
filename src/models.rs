@@ -3,7 +3,9 @@ use chrono::NaiveDate;
 use chrono::Utc;
 use clap::ValueEnum;
 use influxdb::InfluxDbWriteable;
+use log::error;
 use serde::Deserialize;
+use std::fmt;
 
 mod n3rgy_date_format {
     use chrono::{DateTime, NaiveDateTime, Utc};
@@ -21,19 +23,30 @@ mod n3rgy_date_format {
     }
 }
 
-#[derive(Copy, Clone, ValueEnum)]
+#[derive(Copy, Clone, Debug, ValueEnum)]
 pub enum EnergyType {
     Electricity,
     Gas,
 }
 
-#[derive(Copy, Clone, ValueEnum)]
+impl fmt::Display for EnergyType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
+}
+
+#[derive(Copy, Clone, Debug, ValueEnum)]
 pub enum RequestType {
     Consumption,
     Tariff,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+impl fmt::Display for RequestType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Debug::fmt(self, f)
+    }
+}
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(untagged)]
 pub enum ConsumptionOrTariff {
@@ -42,7 +55,7 @@ pub enum ConsumptionOrTariff {
     Error(ErrorResponse),
 }
 
-#[derive(Default, Debug, Clone, Deserialize)]
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Consumption {
     resource: String,
@@ -72,7 +85,7 @@ impl Consumption {
     }
 }
 
-#[derive(Default, Clone, Debug, Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Value {
     #[serde(with = "n3rgy_date_format")]
@@ -81,7 +94,7 @@ struct Value {
     status: Option<String>,
 }
 
-#[derive(Default, Debug, Clone, Deserialize)]
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Tariff {
     resource: String,
@@ -124,33 +137,34 @@ impl Tariff {
     }
 }
 
-#[derive(Default, Debug, Clone, Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct TariffValues {
     standing_charges: Vec<StandingCharge>,
     prices: Vec<Price>,
 }
 
-#[derive(Default, Debug, Clone, Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct StandingCharge {
     start_date: NaiveDate,
     value: f64,
 }
 
-#[derive(Default, Debug, Clone, Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Price {
     #[serde(with = "n3rgy_date_format")]
     timestamp: DateTime<Utc>,
     value: f64,
 }
-#[derive(Default, Debug, Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorResponse {
     errors: Vec<Error>,
 }
-#[derive(Default, Debug, Clone, Deserialize)]
+
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Error {
     code: i64,
@@ -159,12 +173,12 @@ pub struct Error {
 
 impl ErrorResponse {
     pub fn log_out(self) -> Vec<Error> {
-        println!("{:?}", self);
+        error!("n3rgy returned an error response: {:?}", self.errors);
         Vec::new()
     }
 }
 
-#[derive(InfluxDbWriteable, Clone, Debug, Default)]
+#[derive(InfluxDbWriteable, Clone, Default)]
 pub struct ConsumptionReading {
     time: DateTime<Utc>,
     consumption: f64,
@@ -205,7 +219,7 @@ impl ConsumptionReading {
     }
 }
 
-#[derive(InfluxDbWriteable, Clone, Debug, Default)]
+#[derive(InfluxDbWriteable, Clone, Default)]
 pub struct TariffPrice {
     time: DateTime<Utc>,
     price: f64,

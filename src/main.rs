@@ -2,7 +2,9 @@ use std::borrow::Borrow;
 
 use chrono::{DateTime, Duration, Local, TimeZone};
 use clap::Parser;
+use env_logger;
 use influxdb::InfluxDbWriteable;
+use log::debug;
 use reqwest::{Client, Url};
 mod cli;
 mod models;
@@ -13,17 +15,16 @@ const N3RGY_BASE_URL: &str = "https://consumer-api.data.n3rgy.com/";
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
+
     let cli = Cli::parse();
-
     let api_token: &str = cli.api_token.borrow();
-
     let client = reqwest::Client::new();
     let influx_client =
         influxdb::Client::new(cli.influx_uri, cli.influx_database).with_token(cli.influx_token);
 
-    let date_difference = (cli.end_date - cli.start_date).num_days();
-
-    if date_difference > 90 {
+    if (cli.end_date - cli.start_date).num_days() > 90 {
+        debug!("requested more than 90 days of data, chunking requests");
         let mut start_date = cli.start_date;
         let mut end_date = start_date + Duration::days(90);
         let mut date_batches = Vec::new();
@@ -125,6 +126,11 @@ async fn pull_usage(
 ) -> Result<ConsumptionOrTariff, serde_json::Error> {
     let request_start = format!("{}", start_date.format("%Y%m%d%H%M"));
     let request_end = format!("{}", end_date.format("%Y%m%d%H%M"));
+
+    debug!(
+        "requesting: {} {} for dates {} {}",
+        energy_type, request_type, start_date, end_date
+    );
 
     let url = build_request_url(
         request_start,

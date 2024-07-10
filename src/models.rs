@@ -35,9 +35,11 @@ pub enum RequestType {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(untagged)]
 pub enum ConsumptionOrTariff {
     Consumption(Consumption),
     Tariff(Tariff),
+    Error(ErrorResponse),
 }
 
 #[derive(Default, Debug, Clone, Deserialize)]
@@ -142,6 +144,24 @@ struct Price {
     #[serde(with = "n3rgy_date_format")]
     timestamp: DateTime<Utc>,
     value: f64,
+}
+#[derive(Default, Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ErrorResponse {
+    errors: Vec<Error>,
+}
+#[derive(Default, Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Error {
+    code: i64,
+    message: String,
+}
+
+impl ErrorResponse {
+    pub fn log_out(self) -> Vec<Error> {
+        println!("{:?}", self);
+        Vec::new()
+    }
 }
 
 #[derive(InfluxDbWriteable, Clone, Debug, Default)]
